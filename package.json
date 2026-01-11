@@ -1,0 +1,48 @@
+{
+  "name": "stringent",
+  "version": "0.0.2",
+  "description": "A smart and type-safe expression parser",
+  "keywords": [
+    "parser",
+    "expression",
+    "typescript"
+  ],
+  "homepage": "https://github.com/formeddable/stringent#readme",
+  "bugs": {
+    "url": "https://github.com/formeddable/stringent/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/formeddable/stringent.git"
+  },
+  "license": "MIT",
+  "author": "Essam Almansouri",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx src/test.ts",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "@sinclair/parsebox": "^0.11.1",
+    "arktype": "^2.1.29"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "hotscript": "^1.0.13",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.2"
+  }
+}
