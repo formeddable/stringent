@@ -4,250 +4,197 @@
  * Verifies that:
  * 1. Type-level parsing produces correct types (compile-time tests)
  * 2. Runtime parsing produces correct values (runtime tests)
+ * 3. Bound evaluator API works correctly (Task 12)
  */
 
-import assert from "node:assert";
-import {
-  defineNode,
-  number,
-  lhs,
-  rhs,
-  expr,
-  constVal,
-  createParser,
-  ident,
-} from "./index.js";
-import type { Parse, ComputeGrammar, Context } from "./index.js";
-import type { NumberNode } from "./primitive/index.js";
+import { describe, it, expect } from 'vitest';
+import { defineNode, lhs, rhs, constVal, createParser } from './index.js';
+import type { Parse, ComputeGrammar, Context } from './index.js';
+import type { NumberNode } from './primitive/index.js';
+import { typeCheck, type AssertEqual } from './test-helpers.js';
 
 // AST node type with named bindings
 interface AddNode<TLeft, TRight> {
-  readonly node: "add";
-  readonly outputSchema: "number";
+  readonly node: 'add';
+  readonly outputSchema: 'number';
   readonly left: TLeft;
   readonly right: TRight;
 }
 
 interface MulNode<TLeft, TRight> {
-  readonly node: "mul";
-  readonly outputSchema: "number";
+  readonly node: 'mul';
+  readonly outputSchema: 'number';
   readonly left: TLeft;
   readonly right: TRight;
 }
 
 // =============================================================================
-// Type Assertion Helpers
-// =============================================================================
-
-type AssertEqual<T, Expected> = T extends Expected
-  ? Expected extends T
-    ? true
-    : false
-  : false;
-
-// =============================================================================
 // Grammar Definition
 // =============================================================================
-
-const identifier = defineNode({
-  name: "ident",
-  pattern: [ident()],
-  precedence: "atom",
-  resultType: "unknown",
-});
-
-const numberLit = defineNode({
-  name: "number",
-  pattern: [number()],
-  precedence: "atom",
-  resultType: "number",
-});
+// Only operators are defined - atoms (number, string, identifier, parentheses)
+// are built-in and automatically included in the grammar.
 
 const add = defineNode({
-  name: "add",
-  pattern: [lhs("number").as("left"), constVal("+"), rhs("number").as("right")],
+  name: 'add',
+  pattern: [lhs('number').as('left'), constVal('+'), rhs('number').as('right')],
   precedence: 1,
-  resultType: "number",
+  resultType: 'number',
 });
 
 const mul = defineNode({
-  name: "mul",
-  pattern: [lhs("number").as("left"), constVal("*"), rhs("number").as("right")],
+  name: 'mul',
+  pattern: [lhs('number').as('left'), constVal('*'), rhs('number').as('right')],
   precedence: 2,
-  resultType: "number",
+  resultType: 'number',
 });
 
-// Parentheses use expr() - full grammar reset for delimited context
-const parens = defineNode({
-  name: "parens",
-  pattern: [constVal("("), expr("number").as("inner"), constVal(")")],
-  precedence: "atom",
-  resultType: "number",
-});
-
-const nodes = [numberLit, identifier, add, mul, parens] as const;
+// Only operators - atoms are built-in
+const operators = [add, mul] as const;
 
 // =============================================================================
 // Create Parser
 // =============================================================================
 
-const parser = createParser(nodes);
+const parser = createParser(operators);
 
 // =============================================================================
 // Type-Level Tests (compile-time)
 // =============================================================================
 
-type Grammar = ComputeGrammar<typeof nodes>;
+type Grammar = ComputeGrammar<typeof operators>;
 type Ctx = Context<{}>;
 
-// Test T1: Parse simple number
-type R1 = Parse<Grammar, "42", Ctx>;
-type T1 = AssertEqual<R1, [NumberNode<"42">, ""]>;
-const _t1: T1 = true;
+describe('createParser type-level tests', () => {
+  it('should parse simple number (compile-time)', () => {
+    type R1 = Parse<Grammar, '42', Ctx>;
+    type T1 = AssertEqual<R1, [NumberNode<'42'>, '']>;
+    typeCheck<T1>(true);
+  });
 
-// Test T2: Parse simple addition
-type R2 = Parse<Grammar, "1+2", Ctx>;
-type T2 = AssertEqual<R2, [AddNode<NumberNode<"1">, NumberNode<"2">>, ""]>;
-const _t2: T2 = true;
+  it('should parse simple addition (compile-time)', () => {
+    type R2 = Parse<Grammar, '1+2', Ctx>;
+    type T2 = AssertEqual<R2, [AddNode<NumberNode<'1'>, NumberNode<'2'>>, '']>;
+    typeCheck<T2>(true);
+  });
 
-// Test T3: Parse with precedence (mul binds tighter)
-type R3 = Parse<Grammar, "1+2*3", Ctx>;
-type ExpectedR3 = [
-  AddNode<NumberNode<"1">, MulNode<NumberNode<"2">, NumberNode<"3">>>,
-  ""
-];
-type T3 = AssertEqual<R3, ExpectedR3>;
-const _t3: T3 = true;
+  it('should parse with precedence - mul binds tighter (compile-time)', () => {
+    type R3 = Parse<Grammar, '1+2*3', Ctx>;
+    type ExpectedR3 = [AddNode<NumberNode<'1'>, MulNode<NumberNode<'2'>, NumberNode<'3'>>>, ''];
+    type T3 = AssertEqual<R3, ExpectedR3>;
+    typeCheck<T3>(true);
+  });
 
-// Test T4: No match
-type R4 = Parse<Grammar, "@invalid", Ctx>;
-type T4 = AssertEqual<R4, []>;
-const _t4: T4 = true;
+  it('should return empty tuple for no match (compile-time)', () => {
+    type R4 = Parse<Grammar, '@invalid', Ctx>;
+    type T4 = AssertEqual<R4, []>;
+    typeCheck<T4>(true);
+  });
+});
 
 // =============================================================================
-// Runtime Tests
+// Runtime Tests (using new bound evaluator API)
 // =============================================================================
 
-console.log("=== createParser Runtime Tests ===");
+describe('createParser runtime tests', () => {
+  it('should parse simple number', () => {
+    const [evaluator, err] = parser.parse('42', {});
+    expect(err).toBeNull();
+    expect(evaluator).not.toBeNull();
+    expect(evaluator!.ast.node).toBe('literal');
+    expect((evaluator!.ast as unknown as { raw: string }).raw).toBe('42');
+  });
 
-// Test R1: Parse simple number
-{
-  const result = parser.parse("42", {});
-  assert.ok(result.length === 2, "Should match");
-  assert.strictEqual((result[0] as { node: string }).node, "literal");
-  assert.strictEqual((result[0] as { raw: string }).raw, "42");
-  assert.strictEqual(result[1], "");
-  console.log("  R1: Parse '42' → OK");
-}
+  it('should parse simple addition', () => {
+    const [evaluator, err] = parser.parse('1+2', {});
+    expect(err).toBeNull();
+    expect(evaluator).not.toBeNull();
+    expect(evaluator!.ast.node).toBe('add');
+  });
 
-// Test R2: Parse simple addition
-{
-  const result = parser.parse("1+2", {});
-  assert.ok(result.length === 2, "Should match");
-  const node = result[0] as unknown as { node: string };
-  assert.strictEqual(node.node, "add"); // node property now contains the node name
-  assert.strictEqual(result[1], "");
-  console.log("  R2: Parse '1+2' → OK");
-}
+  it('should parse with precedence', () => {
+    const [evaluator, err] = parser.parse('1+2*x', { x: 'number' });
+    expect(err).toBeNull();
+    expect(evaluator).not.toBeNull();
+    const node = evaluator!.ast as unknown as {
+      node: string;
+      left: unknown;
+      right: unknown;
+    };
+    expect(node.node).toBe('add');
+    // Right should be mul(2, x)
+    const right = node.right as { node: string };
+    expect(right.node).toBe('mul');
+  });
 
-// Test R3: Parse with precedence
-{
-  const result = parser.parse("1+2*x", { x: "number" });
-  //
-  assert.ok(result.length === 2, "Should match");
-  const node = result[0] as unknown as {
-    node: string;
-    left: unknown;
-    right: unknown;
-  };
-  assert.strictEqual(node.node, "add");
-  // Right should be mul(2, 3)
-  const right = node.right as { node: string };
-  assert.strictEqual(right.node, "mul");
-  console.log("  R3: Parse '1+2*3' → OK (correct precedence)");
-}
+  it('should return error for partial parsing', () => {
+    // @ts-expect-error - ValidatedInput requires full parsing, but we intentionally test partial parsing here
+    const [evaluator, err] = parser.parse('42 rest', {});
+    // With new API, this returns an error
+    expect(err).not.toBeNull();
+    expect(evaluator).toBeNull();
+  });
 
-// Test R4: Parse with remaining input
-{
-  // @ts-expect-error - ValidatedInput requires full parsing, but we intentionally test partial parsing here
-  const result = parser.parse("42 rest", {});
-  assert.ok(result.length === 2, "Should match");
-  assert.strictEqual(result[1], " rest");
-  console.log("  R4: Parse '42 rest' → OK (remaining: ' rest')");
-}
+  it('should return error for no match', () => {
+    // @ts-expect-error - testing that invalid input causes type error
+    const [evaluator, err] = parser.parse('@invalid', {});
+    expect(err).not.toBeNull();
+    expect(evaluator).toBeNull();
+  });
 
-// Test R5: No match
-{
-  // @ts-expect-error
-  const result = parser.parse("@invalid", {});
-  assert.strictEqual(result.length, 0, "Should not match");
-  console.log("  R5: Parse '@invalid' → OK (no match)");
-}
+  it('should handle chained addition (right-associative)', () => {
+    const [evaluator, err] = parser.parse('1+2+x', { x: 'number' });
+    expect(err).toBeNull();
+    expect(evaluator).not.toBeNull();
+    const node = evaluator!.ast as unknown as {
+      node: string;
+      left: unknown;
+      right: unknown;
+    };
+    expect(node.node).toBe('add');
+    // Right should be add(2, x) due to right-recursion
+    const right = node.right as { node: string };
+    expect(right.node).toBe('add');
+  });
 
-// Test R6: Chained addition (right-associative)
-{
-  const result = parser.parse("1+2+x", { x: "number" });
-  assert.ok(result.length === 2, "Should match");
-  const node = result[0] as unknown as {
-    node: string;
-    left: unknown;
-    right: unknown;
-  };
-  assert.strictEqual(node.node, "add");
-  // Right should be add(2, 3) due to right-recursion
-  const right = node.right as { node: string };
-  assert.strictEqual(right.node, "add");
-  console.log("  R6: Parse '1+2+3' → OK (right-associative)");
-}
+  it('should handle precedence with mul on right (2+1*3 → add(2, mul(1,3)))', () => {
+    const [evaluator, err] = parser.parse('2+1*3', {});
+    expect(err).toBeNull();
+    expect(evaluator).not.toBeNull();
+    const node = evaluator!.ast as unknown as {
+      node: string;
+      left: unknown;
+      right: unknown;
+    };
+    expect(node.node).toBe('add');
+    // Left should be 2
+    const left = node.left as { node: string; raw: string };
+    expect(left.node).toBe('literal');
+    expect(left.raw).toBe('2');
+    // Right should be mul(1, 3)
+    const right = node.right as { node: string };
+    expect(right.node).toBe('mul');
+  });
 
-// Test R7: Precedence with mul on right (2+1*3 → add(2, mul(1,3)))
-{
-  const result = parser.parse("2+1*3", {});
-  assert.ok(result.length === 2, "Should match");
-  const node = result[0] as unknown as {
-    node: string;
-    left: unknown;
-    right: unknown;
-  };
-  assert.strictEqual(node.node, "add");
-  // Left should be 2
-  const left = node.left as { node: string; raw: string };
-  assert.strictEqual(left.node, "literal");
-  assert.strictEqual(left.raw, "2");
-  // Right should be mul(1, 3)
-  const right = node.right as { node: string };
-  assert.strictEqual(right.node, "mul");
-  console.log("  R7: Parse '2+1*3' → OK (mul binds tighter)");
-}
+  it('should handle parentheses (expr() resets to full grammar)', () => {
+    const [evaluator, err] = parser.parse('(1+2)*3', {});
+    expect(err).toBeNull();
+    expect(evaluator).not.toBeNull();
+    const node = evaluator!.ast as unknown as {
+      node: string;
+      left: unknown;
+      right: unknown;
+    };
+    expect(node.node).toBe('mul');
+    // Left should be the built-in parentheses node containing add(1, 2)
+    const left = node.left as { node: string; inner: unknown };
+    expect(left.node).toBe('parentheses');
+  });
 
-// Test R8: Parentheses (expr() resets to full grammar)
-{
-  const result = parser.parse("(1+2)*3", {});
-  assert.ok(result.length === 2, "Should match");
-  const node = result[0] as unknown as {
-    node: string;
-    left: unknown;
-    right: unknown;
-  };
-  assert.strictEqual(node.node, "mul");
-  // Left should be the parens node containing add(1, 2)
-  const left = node.left as { node: string; inner: unknown };
-  assert.strictEqual(left.node, "parens");
-  console.log("  R8: Parse '(1+2)*3' → OK (parens reset precedence)");
-}
-
-// Test R9: Nested parens
-{
-  const result = parser.parse("((1+2))", {});
-  assert.ok(result.length === 2, "Should match");
-  const node = result[0] as unknown as { node: string };
-  assert.strictEqual(node.node, "parens");
-  console.log("  R9: Parse '((1+2))' → OK (nested parens)");
-}
-
-console.log("");
-console.log("========================================");
-console.log("All createParser tests passed!");
-console.log("========================================");
-
-export {};
+  it('should handle nested parentheses', () => {
+    const [evaluator, err] = parser.parse('((1+2))', {});
+    expect(err).toBeNull();
+    expect(evaluator).not.toBeNull();
+    const node = evaluator!.ast as unknown as { node: string };
+    expect(node.node).toBe('parentheses');
+  });
+});

@@ -11,7 +11,19 @@
 // Main API: defineNode & createParser
 // =============================================================================
 
-export { defineNode, number, string, ident, constVal, lhs, rhs, expr } from "./schema/index.js";
+export {
+  defineNode,
+  number,
+  string,
+  ident,
+  constVal,
+  lhs,
+  rhs,
+  expr,
+  nullLiteral,
+  booleanLiteral,
+  undefinedLiteral,
+} from './schema/index.js';
 export type {
   NodeSchema,
   PatternSchema,
@@ -19,6 +31,9 @@ export type {
   StringSchema,
   IdentSchema,
   ConstSchema,
+  NullSchema,
+  BooleanSchema,
+  UndefinedSchema,
   ExprSchema,
   ExprRole,
   Precedence,
@@ -27,19 +42,27 @@ export type {
   SchemaToType,
   InferBindings,
   InferEvaluatedBindings,
-} from "./schema/index.js";
+  UnionResultType,
+  ResultTypeSpec,
+} from './schema/index.js';
 
-export { createParser } from "./createParser.js";
-export type { Parser } from "./createParser.js";
+export { createParser } from './createParser.js';
+export type { Parser, Evaluator, ParseResult, SchemaRecordToData } from './createParser.js';
 
 // =============================================================================
 // Types: Parse, Grammar, Context
 // =============================================================================
 
-export type { Parse, BinaryNode, ParseError, TypeMismatchError, NoMatchError } from "./parse/index.js";
-export type { ComputeGrammar, Grammar } from "./grammar/index.js";
-export type { Context, EmptyContext } from "./context.js";
-export { emptyContext } from "./context.js";
+export type {
+  Parse,
+  BinaryNode,
+  ParseError,
+  TypeMismatchError,
+  NoMatchError,
+} from './parse/index.js';
+export type { ComputeGrammar, Grammar } from './grammar/index.js';
+export type { Context, EmptyContext } from './context.js';
+export { emptyContext } from './context.js';
 
 // =============================================================================
 // Primitive Node Types
@@ -52,23 +75,54 @@ export type {
   StringNode,
   IdentNode,
   ConstNode,
-} from "./primitive/index.js";
+  NullNode,
+  BooleanNode,
+  UndefinedNode,
+} from './primitive/index.js';
 
 // =============================================================================
-// Legacy Primitives (for backwards compatibility)
+// Runtime Utilities
+// =============================================================================
+
+export { processEscapeSequences, parseWithErrors, formatParseError } from './runtime/parser.js';
+export type {
+  RichParseError,
+  ParseResultWithErrors,
+  ParseWithErrorsResult,
+} from './runtime/parser.js';
+
+// =============================================================================
+// Error Types and Utilities
 // =============================================================================
 
 export {
-  Number,
-  String,
-  Ident,
-  Const,
-  type IParser,
-  type ParseResult,
-} from "./primitive/index.js";
+  calculatePosition,
+  createSnippet,
+  createParseError,
+  noMatchError,
+  typeMismatchError,
+  unterminatedStringError,
+  unclosedParenError,
+  unexpectedTokenError,
+  emptyInputError,
+  hasErrors,
+  getErrors,
+  formatError,
+  formatErrors,
+} from './errors.js';
+export type { SourcePosition, ParseErrorKind, ErrorContext } from './errors.js';
 
 // =============================================================================
-// Legacy Combinators (for backwards compatibility)
+// Runtime Evaluation
 // =============================================================================
 
-export { Union, Tuple, Optional, Many } from "./combinators/index.js";
+export { evaluate, createEvaluator } from './runtime/eval.js';
+export type { EvalContext } from './runtime/eval.js';
+
+// =============================================================================
+// Inference
+// =============================================================================
+
+export { infer } from './runtime/infer.js';
+export type { InferredType } from './runtime/infer.js';
+export type { Infer } from './static/infer.js';
