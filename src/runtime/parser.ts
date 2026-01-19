@@ -588,7 +588,7 @@ function extractBindings(
 /**
  * Helper: Check if resultType is a UnionResultType (computed union).
  */
-function isUnionResultType(resultType: string | UnionResultType): resultType is UnionResultType {
+function isUnionResultType(resultType: unknown): resultType is UnionResultType {
   return typeof resultType === 'object' && resultType !== null && 'union' in resultType;
 }
 
@@ -641,13 +641,14 @@ function buildNodeResult(nodeSchema: NodeSchema, children: ASTNode[], context: C
   // - If resultType is a UnionResultType, compute the union from the specified bindings
   // - If resultType is "unknown" and there's a single expr binding, use its outputSchema
   // - Otherwise use the node's static resultType
-  let outputSchema: string;
+  let outputSchema;
 
   if (isUnionResultType(nodeSchema.resultType)) {
     // Computed union: extract schemas from named bindings and join with ' | '
     outputSchema = computeUnionOutputSchema(bindings, nodeSchema.resultType.union);
   } else {
     outputSchema = nodeSchema.resultType;
+    // TODO (see type ComputeOutputSchema<>): Remove hacky logic and use HKT potentially
     if (outputSchema === 'unknown') {
       const bindingKeys = Object.keys(bindings);
       if (bindingKeys.length === 1) {

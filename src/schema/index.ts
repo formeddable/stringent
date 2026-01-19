@@ -317,7 +317,7 @@ export interface NodeSchema<
   TName extends string = string,
   TPattern extends readonly PatternSchema[] = readonly PatternSchema[],
   TPrecedence extends Precedence = Precedence,
-  TResultType extends string | UnionResultType = string | UnionResultType,
+  TResultType = unknown,
 > {
   readonly name: TName;
   readonly pattern: TPattern;
@@ -424,23 +424,6 @@ export type EvalFn = <$>(values: Record<string, unknown>, ctx: $) => unknown;
  * // resultType: 'garbage'
  * ```
  */
-// Overload for static string result types (validated by arktype)
-export function defineNode<
-  const TName extends string,
-  const TPattern extends readonly PatternSchema[],
-  const TPrecedence extends Precedence,
-  const TResultType extends string,
->(config: {
-  readonly name: TName;
-  readonly pattern: TPattern;
-  readonly precedence: TPrecedence;
-  readonly resultType: type.validate<TResultType>;
-  readonly configure?: <$>(bindings: InferBindings<TPattern>, ctx: $) => Record<string, unknown>;
-  readonly eval?: <$>(
-    values: InferEvaluatedBindings<TPattern>,
-    ctx: $
-  ) => SchemaToType<TResultType>;
-}): NodeSchema<TName, TPattern, TPrecedence, TResultType>;
 
 // Overload for computed union result types
 export function defineNode<
@@ -457,12 +440,41 @@ export function defineNode<
   readonly eval?: <$>(values: InferEvaluatedBindings<TPattern>, ctx: $) => unknown;
 }): NodeSchema<TName, TPattern, TPrecedence, UnionResultType<TBindings>>;
 
+export function defineNode<
+  const TName extends string,
+  const TPattern extends readonly PatternSchema[],
+  const TPrecedence extends Precedence,
+  const TResultType extends UnionResultType,
+>(config: {
+  readonly name: TName;
+  readonly pattern: TPattern;
+  readonly precedence: TPrecedence;
+  readonly resultType: TResultType;
+  readonly configure?: <$>(bindings: InferBindings<TPattern>, ctx: $) => Record<string, unknown>;
+  readonly eval?: <$>(values: InferEvaluatedBindings<TPattern>, ctx: $) => unknown;
+}): NodeSchema<TName, TPattern, TPrecedence, TResultType>;
+
+// Overload for arktype validated types
+export function defineNode<
+  const TName extends string,
+  const TPattern extends readonly PatternSchema[],
+  const TPrecedence extends Precedence,
+  const TResultType,
+>(config: {
+  readonly name: TName;
+  readonly pattern: TPattern;
+  readonly precedence: TPrecedence;
+  readonly resultType: type.validate<TResultType>;
+  readonly configure?: <$>(bindings: InferBindings<TPattern>, ctx: $) => Record<string, unknown>;
+  readonly eval?: <$>(values: InferEvaluatedBindings<TPattern>, ctx: $) => unknown;
+}): NodeSchema<TName, TPattern, TPrecedence, TResultType>;
+
 // Implementation
 export function defineNode<
   const TName extends string,
   const TPattern extends readonly PatternSchema[],
   const TPrecedence extends Precedence,
-  const TResultType extends string | UnionResultType,
+  const TResultType,
 >(config: {
   readonly name: TName;
   readonly pattern: TPattern;
@@ -471,7 +483,7 @@ export function defineNode<
   readonly configure?: <$>(bindings: InferBindings<TPattern>, ctx: $) => Record<string, unknown>;
   readonly eval?: <$>(values: InferEvaluatedBindings<TPattern>, ctx: $) => unknown;
 }): NodeSchema<TName, TPattern, TPrecedence, TResultType> {
-  return config as NodeSchema<TName, TPattern, TPrecedence, TResultType>;
+  return config as never;
 }
 
 // =============================================================================
@@ -561,15 +573,15 @@ export type ArkTypeSchemaToType<T extends string> = type.infer<T>;
  * type X = SchemaToType<'invalid'>;         // unknown (fallback)
  * ```
  */
-export type SchemaToType<T extends string> =
+// prettier-ignore
+export type SchemaToType<T> =
   // Handle generic 'string' type (not a literal) - fall back to unknown
-  string extends T
-    ? unknown
-    : // For literal string types, use arktype's type.infer directly
-      // This handles ALL valid arktype types: primitives, subtypes, constraints, unions, arrays
-      [type.infer<T>] extends [never]
-      ? unknown // Invalid type string, fall back to unknown
-      : type.infer<T>;
+  string extends T ? unknown
+  : number extends T ? unknown
+  : boolean extends T ? unknown
+    // This handles ALL valid arktype types: primitives, subtypes, constraints, unions, arrays
+  : [type.infer<T>] extends [never] ? unknown // invalid, fallback to unkn0own
+  : type.infer<T>;
 
 /**
  * Infer the AST node type from a pattern schema.

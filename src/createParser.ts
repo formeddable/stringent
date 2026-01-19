@@ -27,7 +27,7 @@ export type { SchemaValue, SchemaRecord } from './context.js';
  * Extract the outputSchema from an AST node type.
  * Returns the literal schema string if present, otherwise 'unknown'.
  */
-type ExtractOutputSchema<T> = T extends { outputSchema: infer S extends string } ? S : 'unknown';
+type ExtractOutputSchema<T> = T extends { outputSchema: infer S } ? S : 'unknown';
 
 /**
  * Convert a SchemaRecord to its corresponding TypeScript data type.

@@ -60,7 +60,7 @@ type ExtractIdentifiers<T> = T extends { node: 'identifier'; name: infer N; outp
  */
 type IdentifiersToData<T> = T extends {
   name: infer N extends string;
-  outputSchema: infer S extends string;
+  outputSchema: infer S;
 }
   ? { [K in N]: SchemaToType<S> }
   : never;

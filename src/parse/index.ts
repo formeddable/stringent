@@ -610,7 +610,7 @@ type SingleBindingOutputSchema<Bindings> =
   HasExactlyOneKey<Bindings> extends true
     ? SingleKey<Bindings> extends infer K
       ? K extends keyof Bindings
-        ? Bindings[K] extends { outputSchema: infer S extends string }
+        ? Bindings[K] extends { outputSchema: infer S }
           ? S
           : 'unknown'
         : 'unknown'
@@ -622,7 +622,7 @@ type SingleBindingOutputSchema<Bindings> =
  * Returns the outputSchema if the binding exists and has one, otherwise 'unknown'.
  */
 type BindingOutputSchema<Bindings, TName extends string> = TName extends keyof Bindings
-  ? Bindings[TName] extends { outputSchema: infer S extends string }
+  ? Bindings[TName] extends { outputSchema: infer S }
     ? S
     : 'unknown'
   : 'unknown';
@@ -656,11 +656,12 @@ type ComputeUnionOutputSchema<
  *   propagate that binding's outputSchema (matches runtime behavior).
  * - Otherwise use the static resultType.
  */
-type ComputeOutputSchema<TResultType extends string | UnionResultType, Bindings> =
+// TODO (see runtime parser buildNodeResult()): Remove hacky logic and use HKT potentially
+type ComputeOutputSchema<TResultType, Bindings> =
   TResultType extends UnionResultType<infer TNames extends readonly string[]>
     ? ComputeUnionOutputSchema<Bindings, TNames>
     : TResultType extends 'unknown'
-      ? SingleBindingOutputSchema<Bindings> extends infer S extends string
+      ? SingleBindingOutputSchema<Bindings> extends infer S
         ? S extends 'unknown'
           ? 'unknown'
           : S

@@ -64,8 +64,7 @@ const ternary = defineNode({
   eval: ({ condition, then: thenVal, else: elseVal }) => (condition ? thenVal : elseVal),
 });
 
-const nodes = [add, mul, concat, eq, ternary] as const;
-const parser = createParser(nodes);
+const parser = createParser([add, mul, concat, eq, ternary]);
 
 // =============================================================================
 // Basic API Tests

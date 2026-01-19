@@ -25,4 +25,4 @@ import type { Context } from '../context.js';
  */
 export type Infer<AST, _$ extends Context> =
   // Extract outputSchema from any node that has it
-  AST extends { outputSchema: infer R extends string } ? R : never;
+  AST extends { outputSchema: infer R } ? R : never;
